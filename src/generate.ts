@@ -29,9 +29,9 @@ const keysToTs = ({
   typeName: string;
 }) => {
   const whitespace = Array(indent)
-    .fill(null)
-    .map(() => " ")
-    .join("");
+  .fill(null)
+  .map(() => " ")
+  .join("");
   return [
     `export type ${typeName} =`,
     ...keys.map((k) => `${whitespace}| ${quoteChar}${k}${quoteChar}`),
@@ -42,6 +42,7 @@ export type Options = {
   inFolder: string;
   outFile: string;
   defaultNs?: string;
+  fallbackNS?: string | string[];
   indent?: number;
   typeName?: string;
   quoteChar?: string;
@@ -51,6 +52,7 @@ export const generate = async ({
   inFolder,
   outFile,
   defaultNs = "translation",
+  fallbackNS = [],
   indent = 2,
   typeName = "TranslationKeys",
   quoteChar = `'`,
@@ -64,17 +66,26 @@ export const generate = async ({
     jsonFiles.splice(i, 1);
     jsonFiles.unshift(defaultNamespaceFile);
   }
+  const ns = Array.isArray(fallbackNS) ? fallbackNS : [fallbackNS]
   const keys = await Promise.all(
     jsonFiles.map(async (f) => {
       const content = await readFile(path.join(inFolder, f));
       const translations = JSON.parse(content.toString());
       const namespace = path.parse(f).name;
-      return extractKeys(
+      const arr: string[] = [];
+      if (ns.includes(namespace)) {
+        extractKeys(
+          translations,
+          arr,
+        ).sort();
+      }
+      extractKeys(
         translations,
-        [],
+        arr,
         "",
         namespace === defaultNs ? "" : `${namespace}:`
       ).sort();
+      return arr;
     })
   ).then(flatten);
 
